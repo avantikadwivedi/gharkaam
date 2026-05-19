@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#3D7A4A"/>
+<title>घर का काम</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:system-ui,sans-serif;background:#F5F0E8;min-height:100dvh;display:flex;flex-direction:column;align-items:center}
+.app{width:100%;max-width:440px;min-height:100dvh;background:#F5F0E8;display:flex;flex-direction:column}
+
+.helper-hdr{background:#3D7A4A;padding:24px 18px 18px;text-align:center;flex-shrink:0}
+.hdr-icon{font-size:34px;display:block;margin-bottom:6px}
+.hdr-title{font-size:24px;font-weight:700;color:#fff}
+.hdr-sub{font-size:13px;color:rgba(255,255,255,.85);margin-top:6px}
+
+.day-bar{background:#27500A;padding:10px 14px;display:flex;gap:8px;overflow-x:auto;flex-shrink:0;-webkit-overflow-scrolling:touch}
+.day-bar::-webkit-scrollbar{display:none}
+.day-btn{padding:8px 18px;border-radius:20px;border:none;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;background:rgba(255,255,255,.18);color:rgba(255,255,255,.85);flex-shrink:0}
+.day-btn.on{background:#fff;color:#27500A}
+
+.h-prog{padding:10px 16px 4px;font-size:14px;color:#666;text-align:center;font-weight:500}
+.h-prog-bar{margin:6px 16px 14px;background:#DDD;border-radius:20px;height:10px;overflow:hidden}
+.h-prog-fill{height:100%;background:#3D7A4A;border-radius:20px;transition:width .4s}
+
+.body{padding:0 16px 24px;flex:1;overflow-y:auto;position:relative}
+
+.task-card{border-radius:14px;margin-bottom:12px;overflow:hidden;border:1.5px solid #E8E0D8;display:flex;align-items:stretch;background:#fff;transition:border-color .2s}
+.task-card.done{border-color:#3D7A4A;background:#EAF3DE}
+.task-card.speaking{border-color:#E8943A}
+.play-btn{width:64px;background:#E8943A;border:none;cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff}
+.task-card.done .play-btn{background:#3D7A4A}
+.task-card.speaking .play-btn{animation:pulse .7s infinite alternate}
+@keyframes pulse{from{opacity:1}to{opacity:.45}}
+.play-btn:active{opacity:.7}
+.task-info{flex:1;padding:14px 12px}
+.ttime{font-size:12px;color:#C0622A;font-weight:600;margin-bottom:4px}
+.tname{font-size:16px;font-weight:600;color:#1a1a1a;line-height:1.35}
+.task-card.done .tname{color:#27500A}
+.tmeta{font-size:13px;color:#3D7A4A;margin-top:5px;font-weight:500}
+.check-btn{width:60px;border:none;background:transparent;cursor:pointer;font-size:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.check-btn:active{transform:scale(.8)}
+
+.reset-bar{padding:8px 16px 16px;text-align:center}
+.reset-btn{background:transparent;border:1.5px solid #DDD;border-radius:20px;padding:8px 18px;font-size:12px;color:#888;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="helper-hdr">
+    <span class="hdr-icon">🧹</span>
+    <div class="hdr-title" id="h-greeting">आज का काम</div>
+    <div class="hdr-sub">सुनने के लिए ▶ दबाएँ</div>
+  </div>
+
+  <div class="day-bar" id="day-bar"></div>
+
+  <div class="h-prog" id="h-prog-lbl"></div>
+  <div class="h-prog-bar"><div class="h-prog-fill" id="h-prog-fill" style="width:0%"></div></div>
+
+  <div class="body" id="helper-body"></div>
+
+  <div class="reset-bar">
+    <button class="reset-btn" onclick="resetDone()">↺ नए दिन के लिए रीसेट करें</button>
+  </div>
+
+</div>
+
+<script>
+var DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+var BASE = {
+  daily: [
+    {id:'d1',  time:'7:00–7:30',   hi:'आँवला पानी बनाएँ। सब्ज़ियाँ और फल धोएँ। तौलिये रखें।'},
+    {id:'d2',  time:'7:30–8:00',   hi:'बर्तन वापस रखें। बर्तन धोएँ।'},
+    {id:'d3',  time:'8:00–8:45',   hi:'नाश्ता बनाएँ।'},
+    {id:'d4',  time:'8:45–9:15',   hi:'डाइनिंग टेबल साफ़ करें, किचन साफ़ करें, बिस्तर बनाएँ।'},
+    {id:'d5',  time:'9:15–10:15',  hi:'झाड़-पोंछा करें और सामान सही जगह रखें।'},
+    {id:'d6',  time:'10:15–10:45', hi:'दूध लाएँ। टब और खिलौने उठाकर रखें।'},
+    {id:'d7',  time:'11:30–12:30', hi:'बर्तन वापस रखें। बाकी बर्तन धोएँ।'},
+    {id:'d8',  time:'12:30–1:30',  hi:'दोपहर का खाना बनाएँ।'},
+    {id:'d9',  time:'1:30–3:00',   hi:'किचन और फर्श साफ़ करें। बर्तन धोएँ।'},
+    {id:'d10', time:'3:00–4:00',   hi:'कपड़े धोएँ। नाश्ता बनाएँ।'},
+    {id:'d11', time:'4:00–5:30',   hi:'गहरी सफ़ाई करें।'},
+    {id:'d12', time:'5:30–6:30',   hi:'रात का खाना बनाएँ।'},
+    {id:'d13', time:'6:30–7:30',   hi:'बर्तन धोएँ और किचन साफ़ करें। विराज के ड्राईफ्रूट्स कद्दूकस करें।'},
+    {id:'d14', time:'7:30',        hi:'सामान सही जगह रखें। फर्श साफ़ करें। सिंक साफ़ करें।'}
+  ],
+  deep: {
+    Mon: 'चादर बदलें और वैक्यूम करें।',
+    Tue: 'फ्रिज साफ़ करें। बोतल साफ़ करें।',
+    Wed: 'किचन और यूटिलिटी की सफ़ाई करें।',
+    Thu: 'खिड़कियाँ साफ़ करें और वैक्यूम करें।',
+    Fri: 'मैट और खिलौने साफ़ करें।'
+  },
+  laundry: {
+    Mon: 'विराज के और बेडशीट के कपड़े धोएँ।',
+    Tue: 'सर के कपड़े धोएँ।',
+    Wed: 'विराज के और झाड़न के कपड़े धोएँ।',
+    Thu: 'किचन के तौलिये धोएँ।',
+    Fri: 'मैम के कपड़े धोएँ।',
+    Sat: 'विराज के और तौलिये धोएँ।'
+  }
+};
+
+var done = {}, speakingId = null, selectedDay = null;
+
+function save() { try { localStorage.setItem('gk_done', JSON.stringify(done)); } catch(e) {} }
+function load() { try { done = JSON.parse(localStorage.getItem('gk_done') || '{}'); } catch(e) { done = {}; } }
+load();
+
+function getTasks(day) {
+  return BASE.daily.map(function(t) {
+    var task = {id: t.id, time: t.time, hi: t.hi};
+    if (t.id === 'd11') {
+      task.hi = 'गहरी सफ़ाई: ' + (BASE.deep[day] || 'आज कोई खास सफ़ाई नहीं।');
+    }
+    if (t.id === 'd10') {
+      task.hi = 'कपड़े धोएँ — ' + (BASE.laundry[day] || 'आज कोई खास कपड़े नहीं।') + ' नाश्ता बनाएँ।';
+    }
+    return task;
+  });
+}
+
+function init() {
+  var now = new Date();
+  selectedDay = DAYS[now.getDay()];
+  var h = now.getHours();
+  document.getElementById('h-greeting').textContent = h < 12 ? 'सुप्रभात! 🌞' : h < 17 ? 'नमस्ते! ☀️' : 'शाम को नमस्ते! 🌆';
+  document.getElementById('day-bar').innerHTML = DAYS.map(function(d) {
+    return '<button class="day-btn' + (d === selectedDay ? ' on' : '') + '" onclick="selectDay(\'' + d + '\')">' + d + '</button>';
+  }).join('');
+  render();
+}
+
+function selectDay(d) {
+  selectedDay = d;
+  document.querySelectorAll('.day-btn').forEach(function(b) { b.classList.toggle('on', b.textContent === d); });
+  render();
+}
+
+function render() {
+  var tasks = getTasks(selectedDay);
+  var total = tasks.length;
+  var doneC = tasks.filter(function(t) { return done[t.id]; }).length;
+  var pct = total ? Math.round(doneC / total * 100) : 0;
+  document.getElementById('h-prog-lbl').textContent = doneC + ' / ' + total + ' काम हुए (' + pct + '%)';
+  document.getElementById('h-prog-fill').style.width = pct + '%';
+  document.getElementById('helper-body').innerHTML = tasks.map(function(t) {
+    var isDone = done[t.id];
+    var isSpeaking = speakingId === t.id;
+    return '<div class="task-card' + (isDone ? ' done' : '') + (isSpeaking ? ' speaking' : '') + '">' +
+      '<button class="play-btn" onclick="speakTask(\'' + t.id + '\')">' + (isSpeaking ? '🔊' : '▶') + '</button>' +
+      '<div class="task-info">' +
+      '<div class="ttime">' + t.time + '</div>' +
+      '<div class="tname">' + t.hi + '</div>' +
+      (isDone ? '<div class="tmeta">✓ हो गया</div>' : '') +
+      '</div>' +
+      '<button class="check-btn" onclick="toggleDone(\'' + t.id + '\')">' + (isDone ? '✅' : '⭕') + '</button>' +
+      '</div>';
+  }).join('');
+}
+
+function speakTask(id) {
+  if (!window.speechSynthesis) return;
+  var tasks = getTasks(selectedDay);
+  var t = tasks.find(function(x) { return x.id === id; });
+  if (!t) return;
+  window.speechSynthesis.cancel();
+  speakingId = id;
+  render();
+  var u = new SpeechSynthesisUtterance(t.hi);
+  u.lang = 'hi-IN';
+  u.rate = 0.82;
+  u.pitch = 1;
+  u.volume = 1;
+  var voices = window.speechSynthesis.getVoices();
+  var hv = voices.find(function(v) { return v.lang === 'hi-IN'; });
+  if (hv) u.voice = hv;
+  u.onend = u.onerror = function() { speakingId = null; render(); };
+  window.speechSynthesis.speak(u);
+}
+
+if (window.speechSynthesis) {
+  window.speechSynthesis.onvoiceschanged = function() { window.speechSynthesis.getVoices(); };
+}
+
+function toggleDone(id) {
+  done[id] = !done[id];
+  save();
+  render();
+  if (done[id]) launchConfetti();
+}
+
+function resetDone() {
+  if (!confirm('सभी काम रीसेट करें?')) return;
+  done = {};
+  save();
+  render();
+}
+
+function launchConfetti() {
+  var b = document.getElementById('helper-body');
+  var d = document.createElement('div');
+  d.style.cssText = 'position:absolute;top:0;left:0;right:0;pointer-events:none;height:80px;overflow:hidden;z-index:10';
+  var colors = ['#E8943A','#3D7A4A','#4A6FA5','#C0622A','#FFD700'];
+  for (var i = 0; i < 22; i++) {
+    var s = document.createElement('div');
+    var sz = 7 + Math.random() * 7;
+    s.style.cssText = 'position:absolute;width:'+sz+'px;height:'+sz+'px;background:'+colors[Math.floor(Math.random()*colors.length)]+';border-radius:'+(Math.random()>.5?'50%':'3px')+';left:'+(5+Math.random()*90)+'%;top:-12px;animation:fall 1.3s ease-in forwards;animation-delay:'+(Math.random()*.35)+'s';
+    d.appendChild(s);
+  }
+  b.appendChild(d);
+  setTimeout(function() { try { b.removeChild(d); } catch(e) {} }, 1800);
+}
+
+init();
+</script>
+<style>@keyframes fall{to{top:110%;opacity:0;transform:rotate(360deg)}}</style>
+</body>
+</html>
