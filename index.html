@@ -31,16 +31,24 @@ body{font-family:system-ui,sans-serif;background:#F5F0E8;min-height:100dvh;displ
 .task-card.done{border-color:#3D7A4A;background:#EAF3DE}
 .task-card.speaking{border-color:#E8943A}
 
-/* SPECIAL: once-a-week highlight */
+/* Weekly highlight */
 .task-card.weekly{border:2.5px solid #C0622A;background:linear-gradient(135deg,#FFF8EE 0%,#FFE9CC 100%);box-shadow:0 2px 12px rgba(192,98,42,.18)}
 .task-card.weekly.done{border-color:#3D7A4A;background:#EAF3DE;box-shadow:none}
-.weekly-badge{display:inline-block;background:#C0622A;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-bottom:6px;letter-spacing:.4px}
-.task-card.weekly.done .weekly-badge{background:#3D7A4A}
+
+/* Monthly highlight (purple/violet) */
+.task-card.monthly{border:2.5px solid #7B4A9B;background:linear-gradient(135deg,#F5EEFA 0%,#E5D5F0 100%);box-shadow:0 2px 12px rgba(123,74,155,.18)}
+.task-card.monthly.done{border-color:#3D7A4A;background:#EAF3DE;box-shadow:none}
+
+.badge{display:inline-block;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-bottom:6px;letter-spacing:.4px}
+.badge-weekly{background:#C0622A}
+.badge-monthly{background:#7B4A9B}
+.task-card.done .badge{background:#3D7A4A}
 
 .play-btn{width:64px;background:#E8943A;border:none;cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff}
 .task-card.done .play-btn{background:#3D7A4A}
 .task-card.weekly .play-btn{background:#C0622A}
-.task-card.weekly.done .play-btn{background:#3D7A4A}
+.task-card.monthly .play-btn{background:#7B4A9B}
+.task-card.weekly.done .play-btn,.task-card.monthly.done .play-btn{background:#3D7A4A}
 .task-card.speaking .play-btn{animation:pulse .7s infinite alternate}
 @keyframes pulse{from{opacity:1}to{opacity:.45}}
 .play-btn:active{opacity:.7}
@@ -93,19 +101,24 @@ var BASE = {
     {id:'d8',  time:'12:30–1:30',  hi:'दोपहर का खाना बनाएँ।'},
     {id:'d9',  time:'1:30–3:00',   hi:'किचन और फर्श साफ़ करें। बर्तन धोएँ।'},
     {id:'d10', time:'3:00–4:00',   hi:'कपड़े धोएँ। नाश्ता बनाएँ।'},
-    {id:'d11', time:'4:00–5:30',   hi:'इस हफ्ते का काम।', weekly:true},
+    {id:'d11', time:'4:00–5:30',   hi:'इस हफ्ते का काम।', special:true},
     {id:'d12', time:'5:30–6:30',   hi:'रात का खाना बनाएँ।'},
     {id:'d13', time:'6:30–7:30',   hi:'बर्तन धोएँ और किचन साफ़ करें। विराज के ड्राईफ्रूट्स कद्दूकस करें।'},
     {id:'d14', time:'7:30',        hi:'सामान सही जगह रखें। फर्श साफ़ करें। सिंक साफ़ करें।'}
   ],
   weekly: {
-    Mon: 'चादर बदलें और वैक्यूम करें।',
+    Mon: 'चादर बदलें और बेड वैक्यूम करें।',
     Tue: 'फ्रिज साफ़ करें। बोतल साफ़ करें।',
     Wed: 'किचन और यूटिलिटी की सफ़ाई करें।',
-    Thu: 'खिड़कियाँ साफ़ करें और वैक्यूम करें।',
-    Fri: 'मैट और खिलौने साफ़ करें। स्प्राउट्स भिगोएँ।',
-    Sat: 'डोसा बैटर बनाएँ।'
+    Thu: 'सोफा, डोरमैट और कारपेट वैक्यूम करें।',
+    Fri: 'जिम मैट और वीरू मैट साफ़ करें। स्प्राउट्स भिगोएँ। डोसा बैटर बनाएँ।'
   },
+  // Monthly tasks rotate on Saturdays (week 1, 2, 3 of the month)
+  monthly: [
+    'खिलौने और खिलौनों की शेल्फ साफ़ करें।',
+    'खिड़कियाँ वैक्यूम करें।',
+    'वीरू की स्ट्रॉलर, कुर्सी और स्टूल साफ़ करें।'
+  ],
   laundry: {
     Mon: 'विराज के और बेडशीट के कपड़े धोएँ।',
     Tue: 'सर के कपड़े धोएँ।',
@@ -122,11 +135,32 @@ function save() { try { localStorage.setItem('gk_done', JSON.stringify(done)); }
 function load() { try { done = JSON.parse(localStorage.getItem('gk_done') || '{}'); } catch(e) { done = {}; } }
 load();
 
+// Determine which Saturday of the month it is (1st, 2nd, 3rd, 4th)
+function getSaturdayWeekOfMonth() {
+  var now = new Date();
+  // Only meaningful when viewing Saturday — count which Saturday this is in the current month
+  var date = now.getDate();
+  return Math.ceil(date / 7); // 1st Sat = 1-7, 2nd = 8-14, 3rd = 15-21, 4th = 22+
+}
+
 function getTasks(day) {
   return BASE.daily.map(function(t) {
-    var task = {id: t.id, time: t.time, hi: t.hi, weekly: t.weekly};
+    var task = {id: t.id, time: t.time, hi: t.hi, special: t.special};
+
     if (t.id === 'd11') {
-      task.hi = BASE.weekly[day] || 'आज इस हफ्ते का कोई खास काम नहीं।';
+      if (day === 'Sat') {
+        // Saturday → monthly task (rotates by week of month)
+        var weekNum = getSaturdayWeekOfMonth();
+        var idx = (weekNum - 1) % BASE.monthly.length;
+        task.hi = BASE.monthly[idx];
+        task.kind = 'monthly';
+      } else if (BASE.weekly[day]) {
+        task.hi = BASE.weekly[day];
+        task.kind = 'weekly';
+      } else {
+        task.hi = 'आज इस हफ्ते का कोई खास काम नहीं।';
+        task.kind = 'weekly';
+      }
     }
     if (t.id === 'd10') {
       task.hi = 'कपड़े धोएँ — ' + (BASE.laundry[day] || 'आज कोई खास कपड़े नहीं।') + ' नाश्ता बनाएँ।';
@@ -160,21 +194,25 @@ function render() {
   document.getElementById('h-prog-lbl').textContent = doneC + ' / ' + total + ' काम हुए (' + pct + '%)';
   document.getElementById('h-prog-fill').style.width = pct + '%';
 
-  // Move weekly highlighted task to top
-  var weeklyTasks = tasks.filter(function(t) { return t.weekly; });
-  var regularTasks = tasks.filter(function(t) { return !t.weekly; });
-  tasks = weeklyTasks.concat(regularTasks);
+  // Move special task (weekly/monthly) to top
+  var specialTasks = tasks.filter(function(t) { return t.special; });
+  var regularTasks = tasks.filter(function(t) { return !t.special; });
+  tasks = specialTasks.concat(regularTasks);
 
   document.getElementById('helper-body').innerHTML = tasks.map(function(t) {
     var isDone = done[t.id];
     var isSpeaking = speakingId === t.id;
-    var isWeekly = t.weekly;
-    var classes = 'task-card' + (isDone ? ' done' : '') + (isSpeaking ? ' speaking' : '') + (isWeekly ? ' weekly' : '');
+    var kind = t.kind || '';
+    var classes = 'task-card' + (isDone ? ' done' : '') + (isSpeaking ? ' speaking' : '') + (kind ? ' ' + kind : '');
+    var badge = '';
+    if (kind === 'weekly')  badge = '<div class="badge badge-weekly">⭐ हफ्ते में एक बार</div>';
+    if (kind === 'monthly') badge = '<div class="badge badge-monthly">🌟 महीने में एक बार</div>';
+
     return '<div class="' + classes + '">' +
       '<button class="play-btn" onclick="speakTask(\'' + t.id + '\')">' + (isSpeaking ? '🔊' : '▶') + '</button>' +
       '<div class="task-info">' +
       '<div class="ttime">' + t.time + '</div>' +
-      (isWeekly ? '<div class="weekly-badge">⭐ हफ्ते में एक बार</div>' : '') +
+      badge +
       '<div class="tname">' + t.hi + '</div>' +
       (isDone ? '<div class="tmeta">✓ हो गया</div>' : '') +
       '</div>' +
